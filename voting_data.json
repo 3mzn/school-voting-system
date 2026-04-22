@@ -1,0 +1,68 @@
+[
+  {
+    "full_name": "Jane Doe",
+    "class": "12",
+    "division": "A",
+    "votes": {
+      "Head Boy": "David Smith",
+      "Head Girl": "Sarah Parker",
+      "Deputy Head Boy": "Michael Brown",
+      "Deputy Head Girl": "Jessica Alba"
+    }
+  },
+  {
+    "full_name": "LOL ball",
+    "class": "12",
+    "division": "C",
+    "votes": {
+      "Head Boy": "James Wilson",
+      "Head Girl": "Sarah Parker",
+      "Deputy Head Boy": "Michael Brown",
+      "Deputy Head Girl": "Jessica Alba"
+    }
+  },
+  {
+    "full_name": "joseph binoy",
+    "class": "12",
+    "division": "C",
+    "votes": {
+      "Head Boy": "James Wilson",
+      "Head Girl": "Emily Davis",
+      "Deputy Head Boy": "Michael Brown",
+      "Deputy Head Girl": "Olivia Wilde"
+    }
+  },
+  {
+    "full_name": "misbah py",
+    "class": "12",
+    "division": "B",
+    "votes": {
+      "Head Boy": "James Wilson",
+      "Head Girl": "Sophia Williams",
+      "Deputy Head Boy": "Daniel Miller",
+      "Deputy Head Girl": "Jessica Alba"
+    }
+  },
+  {
+    "full_name": "abc desh",
+    "class": "12",
+    "division": "A",
+    "votes": {
+      "Head Boy": "Alex Johnson",
+      "Head Girl": "Sophia Williams",
+      "Deputy Head Boy": "Chris Evans",
+      "Deputy Head Girl": "Olivia Wilde"
+    }
+  },
+  {
+    "full_name": "eshan faizal",
+    "class": "11",
+    "division": "C",
+    "votes": {
+      "Head Boy": "James Wilson",
+      "Head Girl": "Emily Davis",
+      "Deputy Head Boy": "Chris Evans",
+      "Deputy Head Girl": "Olivia Wilde"
+    }
+  }
+]
