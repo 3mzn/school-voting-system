@@ -1,6 +1,8 @@
 import customtkinter as ctk
 import json
 import os
+import csv
+from PIL import Image
 
 # ==============================================================================
 # SECTION 1: COLORS AND SETTINGS
@@ -28,6 +30,25 @@ COLOR_SUBTEXT  = "#66667a"
 
 VOTER_FILE = "voting_data.json"
 CANDIDATES_FILE = "candidates.json"
+TOKEN_DB_FILE = "db.txt"
+TALLY_FILE = "vote_tally.csv"
+
+def load_tokens():
+    """Load valid tokens from db.txt file."""
+    if not os.path.exists(TOKEN_DB_FILE):
+        # Create default token file if it doesn't exist
+        with open(TOKEN_DB_FILE, "w") as f:
+            f.write("1234\n5678\n9012\n")
+        return ["1234", "5678", "9012"]
+    
+    with open(TOKEN_DB_FILE, "r") as f:
+        tokens = [line.strip() for line in f if line.strip()]
+    return tokens
+
+def is_valid_token(token):
+    """Check if the token exists in the database."""
+    valid_tokens = load_tokens()
+    return token in valid_tokens
 
 def init_files():
     """Checks if our data files exist yet. If not, it creates them."""
@@ -46,6 +67,116 @@ def init_files():
         }
         with open(CANDIDATES_FILE, "w") as f:
             json.dump(empty_candidates, f, indent=2)
+    
+    # Create the vote tally CSV if it doesn't exist
+    if not os.path.exists(TALLY_FILE):
+        init_vote_tally()
+
+def init_vote_tally():
+    """Creates the vote tally CSV file with all candidates initialized to 0 votes."""
+    candidates_data = load_candidates()
+    
+    # Define the order of positions
+    positions = ["Head Boy", "Head Girl", "Deputy Head Boy", "Deputy Head Girl"]
+    
+    with open(TALLY_FILE, "w", newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        
+        # Write header
+        writer.writerow(["Position", "Candidate Name", "Class/Division", "Vote Count"])
+        
+        # Write candidates grouped by position with blank lines between groups
+        for i, position in enumerate(positions):
+            candidates_list = candidates_data.get(position, [])
+            
+            for candidate in candidates_list:
+                writer.writerow([
+                    position,
+                    candidate["name"],
+                    candidate["description"],
+                    0  # Initialize with 0 votes
+                ])
+            
+            # Add blank line after each position group (except the last one)
+            if i < len(positions) - 1:
+                writer.writerow(["", "", "", ""])
+
+def update_vote_tally(votes):
+    """Updates the vote tally CSV by incrementing counts for the voted candidates."""
+    # Read the entire CSV into memory
+    rows = []
+    with open(TALLY_FILE, "r", newline='', encoding='utf-8') as f:
+        reader = csv.reader(f)
+        rows = list(reader)
+    
+    # Update vote counts for each position
+    for position, candidate_name in votes.items():
+        if candidate_name:  # Only update if a candidate was selected
+            # Find the row for this candidate and increment their vote count
+            for i, row in enumerate(rows):
+                # Skip header and blank rows
+                if i == 0 or len(row) < 4 or row[0] == "":
+                    continue
+                
+                # Check if this row matches the position and candidate name
+                if row[0] == position and row[1] == candidate_name:
+                    # Increment the vote count
+                    current_count = int(row[3]) if row[3].isdigit() else 0
+                    rows[i][3] = str(current_count + 1)
+                    break
+    
+    # Write the updated data back to the CSV
+    with open(TALLY_FILE, "w", newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerows(rows)
+
+def rebuild_vote_tally():
+    """Rebuilds the vote tally CSV from scratch by counting all votes in voting_data.json."""
+    # Load all votes
+    with open(VOTER_FILE, "r") as f:
+        voters = json.load(f)
+    
+    # Load candidates
+    candidates_data = load_candidates()
+    
+    # Initialize vote counts dictionary
+    vote_counts = {}
+    positions = ["Head Boy", "Head Girl", "Deputy Head Boy", "Deputy Head Girl"]
+    
+    for position in positions:
+        vote_counts[position] = {}
+        for candidate in candidates_data.get(position, []):
+            vote_counts[position][candidate["name"]] = 0
+    
+    # Count all votes
+    for voter in voters:
+        for position, candidate_name in voter.get("votes", {}).items():
+            if candidate_name and position in vote_counts and candidate_name in vote_counts[position]:
+                vote_counts[position][candidate_name] += 1
+    
+    # Write to CSV
+    with open(TALLY_FILE, "w", newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        
+        # Write header
+        writer.writerow(["Position", "Candidate Name", "Class/Division", "Vote Count"])
+        
+        # Write candidates grouped by position with blank lines between groups
+        for i, position in enumerate(positions):
+            candidates_list = candidates_data.get(position, [])
+            
+            for candidate in candidates_list:
+                count = vote_counts[position].get(candidate["name"], 0)
+                writer.writerow([
+                    position,
+                    candidate["name"],
+                    candidate["description"],
+                    count
+                ])
+            
+            # Add blank line after each position group (except the last one)
+            if i < len(positions) - 1:
+                writer.writerow(["", "", "", ""])
 
 def load_candidates():
     """Loads candidate data from the JSON file."""
@@ -63,20 +194,19 @@ def load_candidates():
             "Deputy Head Girl": []
         }
 
-def has_voted(full_name, student_class, division):
-    """Checks the JSON file to see if this student has already voted."""
+def has_voted(token):
+    """Checks if this token has already been used to vote."""
     with open(VOTER_FILE, "r") as f:
         voters = json.load(f)
     
-    # Check if any voter has the same full name (case-insensitive)
-    normalized_name = full_name.upper().strip()
+    # Check if token exists in voters list
     for voter in voters:
-        if voter["full_name"].upper().strip() == normalized_name:
+        if voter.get("token") == token:
             return True
     return False
 
-def save_vote(full_name, student_class, division, votes):
-    """Saves the student as 'voted' and records their choices in JSON."""
+def save_vote(token, votes):
+    """Saves the vote with the token."""
     
     # 1. Load existing voters
     with open(VOTER_FILE, "r") as f:
@@ -84,9 +214,7 @@ def save_vote(full_name, student_class, division, votes):
     
     # 2. Create new voter record
     voter_record = {
-        "full_name": full_name.strip(),
-        "class": student_class.strip(),
-        "division": division.strip(),
+        "token": token,
         "votes": {
             "Head Boy": votes["Head Boy"],
             "Head Girl": votes["Head Girl"],
@@ -101,6 +229,9 @@ def save_vote(full_name, student_class, division, votes):
     # 4. Save back to file
     with open(VOTER_FILE, "w") as f:
         json.dump(voters, f, indent=2)
+    
+    # 5. Update the vote tally CSV
+    update_vote_tally(votes)
 
 # ==============================================================================
 # SECTION 3: THE BUILDING BLOCKS (WIDGETS)
@@ -110,7 +241,7 @@ class CandidateCard(ctk.CTkFrame):
     """
     A blueprint for a single candidate card in a compact grid layout.
     """
-    def __init__(self, master, name, description, on_click_callback):
+    def __init__(self, master, name, description, photo_path, on_click_callback):
         super().__init__(
             master, 
             corner_radius=12, 
@@ -121,24 +252,36 @@ class CandidateCard(ctk.CTkFrame):
         
         self.name = name
         self.description = description
+        self.photo_path = photo_path
         self.is_selected = False
         self.callback = on_click_callback
 
-        # AVATAR - Gradient circle with letter
-        self.avatar = ctk.CTkFrame(self, width=56, height=56, corner_radius=28, fg_color="transparent")
+        # AVATAR - Photo or gradient circle with letter
+        self.avatar = ctk.CTkFrame(self, width=120, height=120, corner_radius=12, fg_color="transparent")
         self.avatar.grid(row=0, column=0, padx=12, pady=12, sticky="nsew")
         
-        # Gradient effect using two overlapping circles
-        self.avatar_inner = ctk.CTkFrame(self.avatar, width=52, height=52, corner_radius=26, fg_color="#4b44cc")
-        self.avatar_inner.place(relx=0.5, rely=0.5, anchor="center")
-        
-        self.avatar_letter = ctk.CTkLabel(
-            self.avatar_inner, 
-            text=name[0], 
-            text_color=COLOR_WHITE,
-            font=ctk.CTkFont(size=22, weight="bold")
-        )
-        self.avatar_letter.place(relx=0.5, rely=0.5, anchor="center")
+        # Try to load photo, fallback to initial letter
+        if photo_path and os.path.exists(photo_path):
+            try:
+                # Normalize path (convert backslashes to forward slashes)
+                normalized_path = photo_path.replace("\\", "/")
+                
+                # Load and resize image
+                img = Image.open(normalized_path)
+                img = img.resize((120, 120), Image.Resampling.LANCZOS)
+                
+                # Create CTkImage for dark mode compatibility
+                photo = ctk.CTkImage(light_image=img, dark_image=img, size=(120, 120))
+                
+                # Display photo using place to avoid grid/pack conflicts
+                photo_label = ctk.CTkLabel(self.avatar, image=photo, text="")
+                photo_label.image = photo  # Keep reference
+                photo_label.place(x=0, y=0, relwidth=1, relheight=1)
+            except Exception as e:
+                print(f"Error loading photo for {name}: {e}")
+                self._create_initial_avatar()
+        else:
+            self._create_initial_avatar()
 
         # TEXT AREA
         self.text_area = ctk.CTkFrame(self, fg_color="transparent")
@@ -179,11 +322,25 @@ class CandidateCard(ctk.CTkFrame):
         self.grid_columnconfigure(2, weight=0)
 
         # Make entire card clickable
-        widgets = [self, self.avatar, self.avatar_inner, self.text_area, self.label_name, self.label_desc]
+        widgets = [self, self.avatar, self.text_area, self.label_name, self.label_desc]
         for w in widgets:
             w.bind("<Button-1>", self._handle_click)
             w.bind("<Enter>", self._handle_hover_on)
             w.bind("<Leave>", self._handle_hover_off)
+
+    def _create_initial_avatar(self):
+        """Create fallback avatar with initial letter."""
+        # Gradient effect using two overlapping circles
+        self.avatar_inner = ctk.CTkFrame(self.avatar, width=120, height=120, corner_radius=12, fg_color="#4b44cc")
+        self.avatar_inner.place(relx=0.5, rely=0.5, anchor="center")
+        
+        self.avatar_letter = ctk.CTkLabel(
+            self.avatar_inner, 
+            text=self.name[0], 
+            text_color=COLOR_WHITE,
+            font=ctk.CTkFont(size=48, weight="bold")
+        )
+        self.avatar_letter.place(relx=0.5, rely=0.5, anchor="center")
 
     def _handle_hover_on(self, _):
         if not self.is_selected:
@@ -218,7 +375,7 @@ class VotingApp(ctk.CTk):
 
         # --- WINDOW SETUP ---
         self.title("School Leadership Election")
-        self.geometry("900x750")
+        self.geometry("1920x1080")
         self.configure(fg_color=BG_BASE)
         self.attributes("-alpha", 0)
 
@@ -226,7 +383,7 @@ class VotingApp(ctk.CTk):
         init_files()
 
         # --- APP STATE ---
-        self.current_voter = {"name": "", "class": "", "division": ""}
+        self.current_token = ""
         self.selections = {"Head Boy": None, "Head Girl": None, "Deputy Head Boy": None, "Deputy Head Girl": None}
         self.cards_list = []
         self.current_step = 0  # Track progress
@@ -289,7 +446,7 @@ class VotingApp(ctk.CTk):
         self._clear_screen()
         
         # Update progress
-        self._update_progress(0, "Step 1 of 3: Voter Registration")
+        self._update_progress(0, "Step 1 of 4: Token Authentication")
 
         self.current_screen = ctk.CTkFrame(self, fg_color="transparent")
         self.current_screen.pack(expand=True, fill="both")
@@ -299,24 +456,18 @@ class VotingApp(ctk.CTk):
         login_box.place(relx=0.5, rely=0.5, anchor="center")
 
         ctk.CTkLabel(
-            login_box, text="Voter Registration", 
+            login_box, text="Voter Authentication", 
             font=ctk.CTkFont(size=26, weight="bold"), text_color=COLOR_WHITE
         ).pack(pady=(30, 10))
 
         ctk.CTkLabel(
-            login_box, text="Please enter your details to verify eligibility.", 
+            login_box, text="Please enter your 4-digit token to proceed.", 
             font=ctk.CTkFont(size=14), text_color=COLOR_DIM
         ).pack(pady=(0, 20), padx=40)
 
-        # Inputs
-        self.name_entry = ctk.CTkEntry(login_box, placeholder_text="Full Name", width=280, height=45)
-        self.name_entry.pack(pady=10)
-
-        self.class_entry = ctk.CTkEntry(login_box, placeholder_text="Class (e.g. 12)", width=280, height=45)
-        self.class_entry.pack(pady=10)
-
-        self.division_entry = ctk.CTkEntry(login_box, placeholder_text="Division (e.g. A)", width=280, height=45)
-        self.division_entry.pack(pady=10)
+        # Token input
+        self.token_entry = ctk.CTkEntry(login_box, placeholder_text="Enter 4-digit token", width=280, height=45)
+        self.token_entry.pack(pady=10)
 
         # Label to show errors
         self.error_label = ctk.CTkLabel(login_box, text="", text_color="#ff4d4d", font=ctk.CTkFont(size=12))
@@ -331,23 +482,23 @@ class VotingApp(ctk.CTk):
         ).pack(pady=(10, 30))
 
     def _handle_login_click(self):
-        """Checks the inputs when they try to proceed."""
-        name = self.name_entry.get()
-        student_class = self.class_entry.get()
-        division = self.division_entry.get()
+        """Checks the token when they try to proceed."""
+        token = self.token_entry.get().strip()
 
-        if not name or not student_class or not division:
-            self.error_label.configure(text="Please fill in all fields.")
+        if not token:
+            self.error_label.configure(text="Please enter a token.")
             return
 
-        if has_voted(name, student_class, division):
-            self.error_label.configure(text="Error: This name has already voted!")
+        if not is_valid_token(token):
+            self.error_label.configure(text="Invalid token. Please try again.")
             return
 
-        # They are eligible! Save their info temporarily.
-        self.current_voter["name"] = name
-        self.current_voter["class"] = student_class
-        self.current_voter["division"] = division
+        if has_voted(token):
+            self.error_label.configure(text="Error: This token has already been used!")
+            return
+
+        # Token is valid and unused! Save it temporarily.
+        self.current_token = token
 
         # Move to the next screen
         self._show_ballot_screen()
@@ -410,6 +561,7 @@ class VotingApp(ctk.CTk):
                     master=candidates_frame, 
                     name=candidate["name"], 
                     description=candidate["description"], 
+                    photo_path=candidate.get("photo_path", ""),
                     on_click_callback=self._process_selection
                 )
                 card.grid(row=row, column=col, padx=15, pady=10, sticky="nsew")
@@ -567,12 +719,7 @@ class VotingApp(ctk.CTk):
     def _handle_final_submit(self):
         """Final submission after confirmation."""
         # Save the vote to data files
-        save_vote(
-            self.current_voter["name"],
-            self.current_voter["class"],
-            self.current_voter["division"],
-            self.selections
-        )
+        save_vote(self.current_token, self.selections)
         # Move to thank you screen
         self._show_thankyou_screen()
 

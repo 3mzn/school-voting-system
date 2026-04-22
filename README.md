@@ -4,9 +4,11 @@ A modern, elegant desktop voting application built with Python and CustomTkinter
 
 ## Features
 
-- **Modern Dark UI** - Elegant dark theme with electric blue accents
-- **Double-Voting Prevention** - Prevents voting with same name (case-insensitive)
-- **Flexible Candidate Management** - Use SETUP.py to add/edit/remove candidates
+- **Modern Dark UI** - Elegant dark theme with electric blue accents (1920x1080 resolution)
+- **Token-Based Authentication** - 4-digit token login system with database support (db.txt or db.csv)
+- **Double-Voting Prevention** - Prevents voting with same token
+- **Candidate Photos** - Display profile photos on candidate cards (falls back to initial if no photo)
+- **Flexible Candidate Management** - Use SETUP.py to add/edit/remove candidates with photos
 - **Confirmation Screen** - Review selections before final submission
 - **Progress Tracking** - 4-step guided voting process
 - **Data Persistence** - Votes saved to JSON file with complete records
@@ -55,8 +57,8 @@ school-voting-system/
 4. **candidates.json** - Now populated with your candidates
 
 ### Voting Phase (main.py)
-1. **Voter Registration** - Enter name, class, division
-2. **Candidate Selection** - 2-column grid layout with all candidates
+1. **Token Login** - Enter 4-digit token to authenticate
+2. **Candidate Selection** - 2-column grid layout with candidate photos and names
 3. **Review Selections** - Confirm all choices before submitting
 4. **Submit Vote** - Vote saved to voting_data.json
 5. **Thank You** - Auto-redirect to login after 5 seconds
@@ -77,11 +79,11 @@ school-voting-system/
 ```json
 {
   "Head Boy": [
-    {"name": "James Wilson", "description": "Grade 12A"},
-    {"name": "David Smith", "description": "Grade 12C"}
+    {"name": "James Wilson", "description": "Grade 12A", "photo_path": "/path/to/photo1.jpg"},
+    {"name": "David Smith", "description": "Grade 12C", "photo_path": "/path/to/photo2.jpg"}
   ],
   "Head Girl": [
-    {"name": "Sarah Parker", "description": "Grade 12B"}
+    {"name": "Sarah Parker", "description": "Grade 12B", "photo_path": "/path/to/photo3.jpg"}
   ]
 }
 ```
@@ -90,9 +92,7 @@ school-voting-system/
 ```json
 [
   {
-    "full_name": "John Doe",
-    "class": "12",
-    "division": "A",
+    "token": "1234",
     "votes": {
       "Head Boy": "James Wilson",
       "Head Girl": "Sarah Parker",
@@ -106,32 +106,39 @@ school-voting-system/
 ## Features in Detail
 
 ### UI Design
-- **2-Column Grid Layout** - Compact candidate display
+- **2-Column Grid Layout** - Compact candidate display with larger cards
+- **Candidate Photos** - Profile images displayed on cards (120x120px)
 - **Hover Effects** - Visual feedback on candidate cards
 - **Checkmark Selection** - Clear visual confirmation
 - **Progress Header** - Step-by-step guidance (4 steps)
 - **Custom Scrollbar** - Blends with dark theme
 - **Confirmation Step** - Prevents accidental submissions
+- **1920x1080 Resolution** - Full HD display for better visibility
 
 ### Data Management
 - **JSON Storage** - Human-readable data files
-- **Case-Insensitive Matching** - Prevents duplicate voting by name
-- **Complete Records** - Stores voter info and selections
+- **Token-Based Authentication** - 4-digit tokens from db.txt or db.csv
+- **Token Validation** - Checks token database before allowing vote
+- **Complete Records** - Stores token and selections
 - **Auto-Initialization** - Creates files if missing
 - **Empty by Default** - No hardcoded data
+- **Photo Support** - Stores photo paths in candidate records
 
 ### Security Features
-- **Name-Based Prevention** - Can't vote twice with same name
+- **Token-Based Authentication** - 4-digit token login system
+- **Token Database** - Supports db.txt or db.csv formats
+- **Double-Voting Prevention** - Can't vote twice with same token
 - **Input Validation** - All fields required
 - **Confirmation Step** - Prevents accidental submissions
 - **Data Integrity** - Proper error handling
 
 ## SETUP.py Features
 
-- **Add Candidates** - Enter name and class/division
+- **Add Candidates** - Enter name, class/division, and select a profile photo
 - **Edit Candidates** - Modify existing candidates
 - **Delete Candidates** - Remove candidates from positions
 - **Switch Roles** - Easy navigation between positions
+- **Photo Selection** - File explorer to choose candidate photos (JPG, PNG, BMP)
 - **Save to File** - Persists all changes to candidates.json
 - **Minimal UI** - Simple, non-technical interface
 
@@ -193,7 +200,9 @@ school-voting-system/
 - **No default candidates** - Start with empty candidates.json
 - **One-time setup per election** - Set candidates once, don't change during voting
 - **Voting records are permanent** - Delete voting_data.json to reset votes
-- **Case-insensitive names** - "John Doe" and "john doe" are treated as same person
+- **Token-based voting** - Each token can only vote once
+- **Photo formats** - Supports JPG, JPEG, PNG, BMP images
+- **Photo display** - Photos are automatically resized to 120x120px on cards
 
 ## License
 
