@@ -36,28 +36,16 @@ def init_files():
         with open(VOTER_FILE, "w") as f:
             json.dump([], f) # Start with an empty list
     
-    # Create the candidates file if it doesn't exist
+    # Create the candidates file if it doesn't exist (empty - organizer adds via SETUP.py)
     if not os.path.exists(CANDIDATES_FILE):
-        default_candidates = {
-            "Head Boy": [
-                {"name": "James Wilson", "description": "Grade 12A"},
-                {"name": "David Smith", "description": "Grade 12C"}
-            ],
-            "Head Girl": [
-                {"name": "Sarah Parker", "description": "Grade 12B"},
-                {"name": "Emily Davis", "description": "Grade 12A"}
-            ],
-            "Deputy Head Boy": [
-                {"name": "Michael Brown", "description": "Grade 11B"},
-                {"name": "Chris Evans", "description": "Grade 11C"}
-            ],
-            "Deputy Head Girl": [
-                {"name": "Jessica Alba", "description": "Grade 11A"},
-                {"name": "Olivia Wilde", "description": "Grade 11B"}
-            ]
+        empty_candidates = {
+            "Head Boy": [],
+            "Head Girl": [],
+            "Deputy Head Boy": [],
+            "Deputy Head Girl": []
         }
         with open(CANDIDATES_FILE, "w") as f:
-            json.dump(default_candidates, f, indent=2)
+            json.dump(empty_candidates, f, indent=2)
 
 def load_candidates():
     """Loads candidate data from the JSON file."""
